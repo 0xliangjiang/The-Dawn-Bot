@@ -13,15 +13,15 @@
 threads: 100                     # Controls parallel processing capacity
                               # Higher values increase performance but consume more resources
 
-use_proxy_for_imap: false     # Enables secure proxy routing for IMAP connections
+use_proxy_for_imap: true     # Enables secure proxy routing for IMAP connections
                               # Recommended for enhanced privacy and security
 
 keepalive_interval: 300       # Connection monitoring frequency (seconds)
                               # Ensures stable network connectivity
 
 use_single_imap: # use one imap server for all accounts
-    enabled: false
-    imap_server: "imap.gmail.com"
+    enabled: true
+    imap_server: "pop3.kuku.lu"
 
 # ┏━━━━━━━━━━━━━━━━━━━━━┓
 # ┃  EMAIL REDIRECTION   ┃
@@ -67,6 +67,7 @@ imap_settings:
     gmail.com: imap.gmail.com           # Google Mail (SSL required)
     yahoo.com: imap.mail.yahoo.com      # Yahoo Mail (SSL required)
     icloud.com: imap.mail.me.com        # Apple iCloud (2FA might be needed)
+    kissypie.com: pop3.kuku.lu          # Kuku.lu Mail Service
 
     # ▼ Russian Services
     mail.ru: imap.mail.ru               # Mail.ru service

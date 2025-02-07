@@ -5,16 +5,47 @@ import pytz
 from loguru import logger
 from loader import config, file_operations, captcha_solver
 from models import Account, OperationResult, StatisticData
+from utils.pop_util import PopClient
 
 from .api import DawnExtensionAPI
 from utils import EmailValidator, LinkExtractor
 from database import Accounts
 from .exceptions.base import APIError, SessionRateLimited, CaptchaSolvingFailed, APIErrorType
 
+import asyncio
+
 
 class Bot(DawnExtensionAPI):
     def __init__(self, account: Account):
         super().__init__(account)
+
+    async def get_latest_email(self) -> dict:
+        """Get the latest email from the account's mailbox."""
+        logger.info(f"Account: {self.account_data.email} | Getting latest email...")
+        try:
+            def get_latest():
+                client = PopClient(
+                    host=self.account_data.imap_server,
+                    email=self.account_data.email,
+                    password=self.account_data.password,
+                    proxy=None if config.use_proxy_for_imap is False else self.account_data.proxy
+                )
+                return client.get_latest_email()
+
+            result = await asyncio.to_thread(get_latest)
+            if result["status"]:
+                logger.success(f"Account: {self.account_data.email} | Successfully retrieved latest email")
+            else:
+                logger.error(f"Account: {self.account_data.email} | {result['data']}")
+            return result
+
+        except Exception as error:
+            logger.error(f"Account: {self.account_data.email} | Failed to get latest email: {error}")
+            return {
+                "status": False,
+                "identifier": self.account_data.email,
+                "data": f"Failed to get latest email: {str(error)}"
+            }
 
     async def clear_account_and_session(self) -> None:
         if await Accounts.get_account(email=self.account_data.email):
@@ -133,14 +164,14 @@ class Bot(DawnExtensionAPI):
         task_id = None
 
         try:
-            result = await self._validate_email()
-            if not result["status"]:
-                logger.error(f"Account: {self.account_data.email} | Email is invalid: {result['data']}")
-                return OperationResult(
-                    identifier=self.account_data.email,
-                    data=self.account_data.password,
-                    status=False,
-                )
+            # result = await self._validate_email()
+            # if not result["status"]:
+            #     logger.error(f"Account: {self.account_data.email} | Email is invalid: {result['data']}")
+            #     return OperationResult(
+            #         identifier=self.account_data.email,
+            #         data=self.account_data.password,
+            #         status=False,
+            #     )
 
             logger.info(f"Account: {self.account_data.email} | Re-verifying email...")
             if not self.account_data.appid:
@@ -224,15 +255,15 @@ class Bot(DawnExtensionAPI):
         task_id = None
 
         try:
-            result = await self._validate_email()
-            if not result["status"]:
-                logger.error(f"Account: {self.account_data.email} | Email is invalid: {result['data']}")
-                return OperationResult(
-                    identifier=self.account_data.email,
-                    data=self.account_data.password,
-                    status=False,
-                )
-
+            # result = await self._validate_email()
+            # if not result["status"]:
+            #     logger.error(f"Account: {self.account_data.email} | Email is invalid: {result['data']}")
+            #     return OperationResult(
+            #         identifier=self.account_data.email,
+            #         data=self.account_data.password,
+            #         status=False,
+            #     )
+            logger.info(f"Account: {self.account_data.email} | 跳过邮箱检测...")
             logger.info(f"Account: {self.account_data.email} | Registering...")
             captcha_token = await self.get_captcha_data("turnistale")
 

@@ -9,7 +9,7 @@ from imap_tools import MailBox, AND, MailboxLoginError
 from imaplib import IMAP4, IMAP4_SSL
 from better_proxy import Proxy
 from python_socks.sync import Proxy as SyncProxy
-
+from utils.pop_util import PopClient
 from models import OperationResult, Account
 
 os.environ['SSLKEYLOGFILE'] = ''
@@ -226,26 +226,39 @@ class LinkExtractor:
                 return code
 
         return None
+    
 
     async def _search_in_all_folders(self, proxy: Optional[Proxy]) -> Optional[str]:
         def search_in():
-            all_messages = []
-            with MailBoxClient(host=self.imap_server, proxy=proxy, timeout=30).login(self.email, self.password) as mailbox:
-                for folder in mailbox.folder.list():
-                    if folder.name.lower() == "gmail":
-                        continue
+            logger.info(f"Account: {self.email} | Getting latest email...")
+            try:
+                client = PopClient(
+                    host=self.imap_server,
+                    email=self.email,
+                    password=self.password,
+                    proxy=proxy
+                )
+                result = client.get_latest_email()
+                print(result)
+                if result["status"]:
+                    logger.success(f"Account: {self.email} | Successfully retrieved latest email")
+                else:
+                    logger.error(f"Account: {self.email} | {result['data']}")
+                context = result["data"]["text"]
+                print(context)
+                for link_pattern in self.link_patterns:
+                    if match := re.search(link_pattern, context):
+                        code = str(match.group(1))
 
-                    try:
-                        if mailbox.folder.exists(folder.name):
-                            mailbox.folder.set(folder.name)
-                            messages = self._collect_messages(mailbox)
-                            all_messages.extend(messages)
+                        if self._link_cache.is_link_used(code):
+                            return None
 
-                    except Exception as e:
-                        # logger.warning(f"Account: {self.email} | Error in folder {folder.name}: {str(e)} | Skipping...")
-                        pass
+                        self._link_cache.add_link(self.email, code)
+                        return code
 
-                return self._process_latest_message(all_messages) if all_messages else None
+            except Exception as error:
+                logger.error(f"Account: {self.email} | Failed to get latest email: {error}")
+                return None
 
         return await asyncio.to_thread(search_in)
 
